@@ -1,4 +1,4 @@
-// Generates C++ tars service interface out of Protobuf IDL.
+﻿// Generates C++ tars service interface out of Protobuf IDL.
 //
 // This is a Proto2 compiler plugin.  See net/proto2/compiler/proto/plugin.proto
 // and net/proto2/compiler/public/plugin.h for more information on plugins.
@@ -14,7 +14,7 @@ static std::string GenCallbackMethod(const ::google::protobuf::MethodDescriptor*
     std::string out;
     out.reserve(8 * 1024);
 
-    out = "virtual void callback_" + method->name() + "(const " + pkg + "::" + method->output_type()->name() + "& ret)" + LineFeed(indent);
+    out = "virtual void callback_" + method->name() + "(const " + ToCppNamespace(method->output_type()->full_name()) + "& ret)" + LineFeed(indent);
     out += "{ throw std::runtime_error(\"callback_" + method->name() + " override incorrect.\"); }" + LineFeed(indent);
 
     out += "virtual void callback_" + method->name() + "_exception(tars::Int32 ret)" + LineFeed(indent);
@@ -121,7 +121,7 @@ std::string GenPrxCallback(const ::google::protobuf::ServiceDescriptor* desc, in
         out += "return msg->response.iRet;" + LineFeed(--indent) + "}";
     
         out += LineFeed(indent);
-        out += pkg + "::" + method->output_type()->name() + " _ret;" + LineFeed(indent);
+        out += ToCppNamespace(method->output_type()->full_name()) + " _ret;" + LineFeed(indent);
         out += "_ret.ParseFromArray(msg->response.sBuffer.data(), msg->response.sBuffer.size());" + LineFeed(indent);
         out += "CallbackThreadData * pCbtd = CallbackThreadData::getData();" + LineFeed(indent);
         out += "assert(pCbtd != NULL);" + LineFeed(indent);

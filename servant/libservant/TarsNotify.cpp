@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Tencent is pleased to support the open source community by making Tars available.
  *
  * Copyright (C) 2016THL A29 Limited, a Tencent company. All rights reserved.
@@ -21,7 +21,7 @@
 namespace tars
 {
 
-int TarsRemoteNotify::setNotifyInfo(const CommunicatorPtr &comm, const string &obj, const string & app, const string &serverName, const string &sSetName)
+int TarsRemoteNotify::setNotifyInfo(const CommunicatorPtr &comm, const string &obj, const string & app, const string &serverName, const string &sSetName, const string &nodeName)
 {
     _comm           = comm;
     if(!obj.empty())
@@ -33,7 +33,7 @@ int TarsRemoteNotify::setNotifyInfo(const CommunicatorPtr &comm, const string &o
     _setName        = sSetName;
     _app            = app;
     _serverName     = serverName;
-
+    _nodeName      =  nodeName;
     return 0;
 }
 
@@ -47,16 +47,17 @@ void TarsRemoteNotify::report(const string &sResult, bool bSync)
             info.sApp      = _app;
             info.sServer   = _serverName;
             info.sSet      = _setName;
-            info.sThreadId = TC_Common::tostr(pthread_self());
+            info.sThreadId = TC_Common::tostr(std::this_thread::get_id());
             info.sMessage  = sResult;
+            info.sNodeName = _nodeName;
             if(!bSync)
             {
-                //_notifyPrx->async_reportServer(NULL, _app + "." + _serverName, TC_Common::tostr(pthread_self()), sResult);
+                //_notifyPrx->async_reportServer(NULL, _app + "." + _serverName, TC_Common::tostr(std::this_thread::get_id()), sResult);
                 _notifyPrx->async_reportNotifyInfo(NULL, info);
             }
             else
             {
-                //_notifyPrx->reportServer(_app + "." + _serverName, TC_Common::tostr(pthread_self()), sResult);
+                //_notifyPrx->reportServer(_app + "." + _serverName, TC_Common::tostr(std::this_thread::get_id()), sResult);
                 _notifyPrx->reportNotifyInfo(info);
             }
         }
@@ -82,10 +83,37 @@ void TarsRemoteNotify::notify(NOTIFYLEVEL level, const string &sMessage)
             info.sApp      = _app;
             info.sServer   = _serverName;
             info.sSet      = _setName;
-            info.sThreadId = TC_Common::tostr(pthread_self());
+            info.sThreadId = TC_Common::tostr(std::this_thread::get_id());
             info.sMessage  = sMessage;
             info.eLevel    = level;
+            info.sNodeName = _nodeName;
             //_notifyPrx->async_notifyServer(NULL, _app + "." + _serverName, level, sMessage);
+            _notifyPrx->async_reportNotifyInfo(NULL, info);
+        }
+    }
+    catch(exception &ex)
+    {
+        TLOGERROR("TarsRemoteNotify::notify error:" << ex.what() << endl);
+    }
+    catch(...)
+    {
+        TLOGERROR("TarsRemoteNotify::notify unknown error" << endl);
+    }
+}
+
+void TarsRemoteNotify::report(const string &sMessage, const string & app, const string &serverName, const string &sNodeName)
+{
+    try
+    {
+        if(_notifyPrx)
+        {
+            ReportInfo info;
+           // info.eType     = 0;
+            info.sApp      = app;
+            info.sServer   = serverName;
+            info.sSet      = "";
+            info.sMessage  = sMessage;
+            info.sNodeName = sNodeName;
             _notifyPrx->async_reportNotifyInfo(NULL, info);
         }
     }

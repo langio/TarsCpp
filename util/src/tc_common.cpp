@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Tencent is pleased to support the open source community by making Tars available.
  *
  * Copyright (C) 2016THL A29 Limited, a Tencent company. All rights reserved.
@@ -15,13 +15,104 @@
  */
 
 #include "util/tc_common.h"
+#include "util/tc_port.h"
+#include <chrono>
+#include <thread>
+
+#if TARGET_PLATFORM_WINDOWS
+#include <sys/timeb.h>
+#pragma comment(lib, "ws2_32.lib")
+#include "util/tc_strptime.h"
+#endif
+
+// #if TARGET_PLATFORM_WINDOWS || TARGET_PLATFORM_IOS
+// #define HOST_NAME_MAX 64
+// #endif
+
 #include <signal.h>
-#include <sys/time.h>
 #include <string.h>
 #include <cmath>
 
 namespace tars
 {
+
+const float TC_Common::_EPSILON_FLOAT = 0.000001f;
+const double TC_Common::_EPSILON_DOUBLE = 0.000001;
+
+void TC_Common::sleep(uint32_t sec)
+{
+    std::this_thread::sleep_for(std::chrono::seconds(sec));
+}
+
+void TC_Common::msleep(uint32_t ms)
+{
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+}
+
+bool TC_Common::equal(double x, double y, double epsilon)
+{
+    return fabs(x - y) < epsilon;
+}
+
+bool TC_Common::equal(double x, double y, float epsilon)
+{
+    return equal(x ,y,(double)epsilon);
+}
+
+bool TC_Common::equal(float x, float y, float epsilon)
+{
+    return fabsf(x - y) < epsilon;
+}
+
+bool TC_Common::equal(float x, float y, double epsilon)
+{
+    return equal(x, y, float(epsilon));
+}
+
+bool TC_Common::equal(const vector<double>& vx, const vector<double>& vy, double epsilon)
+{
+    if (vx.size() != vy.size())
+    {
+        return false;
+    }
+    
+    for (size_t i = 0; i < vx.size(); i ++)
+    {
+        if (!equal(vx[i],vy[i],epsilon))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool TC_Common::equal(const vector<double>& vx, const vector<double>& vy, float epsilon)
+{
+    return equal(vx, vy, double(epsilon));
+}
+
+bool TC_Common::equal(const vector<float>& vx, const vector<float>& vy, float epsilon)
+{
+    if (vx.size() != vy.size())
+    {
+        return false;
+    }
+
+    for (size_t i = 0; i < vx.size(); i++)
+    {
+        if (!equal(vx[i], vy[i], epsilon))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool TC_Common::equal(const vector<float>& vx, const vector<float>& vy, double epsilon)
+{
+    return equal(vx, vy, float(epsilon));
+}
+
 template <>
 string TC_Common::tostr<bool>(const bool &t)
 {
@@ -108,9 +199,12 @@ string TC_Common::tostr<unsigned long>(const unsigned long &t)
 template <>
 string TC_Common::tostr<float>(const float &t)
 {
-    char buf[32];
-    snprintf(buf, 32, "%.5f", t);
-    string s(buf);
+    //C++11 to_string，默认保留后面6位小数
+    string s = std::to_string(t);
+
+    // char buf[32];
+    // snprintf(buf, 32, "%.5f", t);
+    // string s(buf);
 
     //去掉无效0, eg. 1.0300 -> 1.03;1.00 -> 1
     bool bFlag = false;
@@ -142,9 +236,12 @@ string TC_Common::tostr<float>(const float &t)
 template <>
 string TC_Common::tostr<double>(const double &t)
 {
-    char buf[32];
-    snprintf(buf, 32, "%.5f", t);
-    string s(buf);
+    //C++11 to_string，默认保留后面6位小数
+    string s = std::to_string(t);
+
+    // char buf[32];
+    // snprintf(buf, 32, "%.5f", t);
+    // string s(buf);
 
     //去掉无效0, eg. 1.0300 -> 1.03;1.00 -> 1
     bool bFlag = false;
@@ -364,10 +461,62 @@ bool TC_Common::isdigit(const string &sInput)
     return true;
 }
 
+
+//用于计算时区差异!
+class TimezoneHelper
+{
+public:
+	TimezoneHelper()
+	{
+		struct tm timeinfo;
+		time_t secs, local_secs, gmt_secs;
+		time(&secs);
+
+        TC_Port::localtime_r(&secs, &timeinfo);
+
+// 		//带时区时间
+// #if TARGET_PLATFORM_WINDOWS
+// 		localtime_s(&timeinfo, &secs);
+// #else
+// 		localtime_r(&secs, &timeinfo);
+// #endif
+
+		local_secs = ::mktime(&timeinfo);
+
+		//不带时区时间
+        TC_Port::gmtime_r(&secs, &timeinfo);
+
+// #if TARGET_PLATFORM_WINDOWS
+// 		gmtime_s(&timeinfo, &secs);
+// #else
+// 		gmtime_r(&secs, &timeinfo);
+// #endif
+
+		gmt_secs = ::mktime(&timeinfo);
+		timezone_diff_secs = local_secs - gmt_secs;
+	}
+
+	static int64_t timezone_diff_secs;
+};
+
+int64_t TimezoneHelper::timezone_diff_secs = 0;
+
 int TC_Common::str2tm(const string &sString, const string &sFormat, struct tm &stTm)
 {
     char *p = strptime(sString.c_str(), sFormat.c_str(), &stTm);
     return (p != NULL) ? 0 : -1;
+}
+
+time_t TC_Common::str2time(const string &sString, const string &sFormat)
+{
+	struct tm stTm;
+	if (0 == str2tm(sString, sFormat, stTm))
+	{
+		//注意这里没有直接用mktime, mktime会访问时区文件, 会巨慢!
+		static TimezoneHelper helper;
+		return TC_Port::timegm(&stTm) - TimezoneHelper::timezone_diff_secs;
+	}
+	return 0;
 }
 
 int TC_Common::strgmt2tm(const string &sString, struct tm &stTm)
@@ -384,12 +533,68 @@ string TC_Common::tm2str(const struct tm &stTm, const string &sFormat)
     return string(sTimeString);
 }
 
+int TC_Common::gettimeofday(struct timeval &tv)
+{
+    return TC_Port::gettimeofday(tv);
+
+// #if TARGET_PLATFORM_WINDOWS
+// 	static const DWORDLONG FILETIME_to_timeval_skew = 116444736000000000;
+// 	FILETIME tfile;
+// 	::GetSystemTimeAsFileTime(&tfile);
+
+// 	ULARGE_INTEGER tmp;
+// 	tmp.LowPart = tfile.dwLowDateTime;
+// 	tmp.HighPart = tfile.dwHighDateTime;
+// 	tmp.QuadPart -= FILETIME_to_timeval_skew;
+
+// 	ULARGE_INTEGER largeInt;
+// 	largeInt.QuadPart = tmp.QuadPart / (10000 * 1000);
+// 	tv.tv_sec = (long)(tmp.QuadPart / (10000 * 1000));
+// 	tv.tv_usec = (long)((tmp.QuadPart % (10000 * 1000)) / 10);
+// 	return 0;
+// #else
+// 	return ::gettimeofday(&tv, 0);
+// #endif
+}
+
+void TC_Common::tm2time(const time_t &t, struct tm &tt)
+{
+	//加快速度, 否则会比较慢, 不用localtime_r(会访问时区文件, 较慢)
+	static TimezoneHelper helper;
+	time_t localt = t + TimezoneHelper::timezone_diff_secs;
+
+    TC_Port::gmtime_r(&localt, &tt);
+
+// #if TARGET_PLATFORM_WINDOWS
+// 	//localtime_s
+//     gmtime_s(&tt, &localt);
+// #else
+// 	gmtime_r(&localt, &tt);
+// #endif
+}
+
 string TC_Common::tm2str(const time_t &t, const string &sFormat)
 {
     struct tm tt;
-    localtime_r(&t, &tt);
+    tm2time(t, tt);
+    // localtime_r(&t, &tt);
 
     return tm2str(tt, sFormat);
+}
+
+
+void TC_Common::tm2tm(const time_t &t, struct tm &tt)
+{
+	static TimezoneHelper helper;
+	time_t localt = t + TimezoneHelper::timezone_diff_secs;
+
+    TC_Port::gmtime_r(&localt, &tt);
+// #if TARGET_PLATFORM_WINDOWS
+//     gmtime_s(&tt, &localt);
+// #else
+// 	gmtime_r(&localt, &tt);
+// #endif
+// 	// gmtime_r(&localt, &stTm);
 }
 
 string TC_Common::now2str(const string &sFormat)
@@ -407,8 +612,18 @@ string TC_Common::now2GMTstr()
 string TC_Common::tm2GMTstr(const time_t &t)
 {
     struct tm tt;
-    gmtime_r(&t, &tt);
-    return tm2str(tt, "%a, %d %b %Y %H:%M:%S GMT");
+
+    TC_Port::gmtime_r(&t, &tt);
+
+// #if TARGET_PLATFORM_LINUX || TARGET_PLATFORM_IOS
+// 	gmtime_r(&t, &tt);
+// #elif TARGET_PLATFORM_WINDOWS
+// 	_gmtime64_s(&tt, &t);
+// #endif	
+	return tm2str(tt, "%a, %d %b %Y %H:%M:%S GMT");
+
+    // gmtime_r(&t, &tt);
+    // return tm2str(tt, "%a, %d %b %Y %H:%M:%S GMT");
 }
 
 string TC_Common::tm2GMTstr(const struct tm &stTm)
@@ -430,7 +645,8 @@ int64_t TC_Common::now2ms()
 {
     struct timeval tv;
 
-    gettimeofday(&tv, 0);
+    // gettimeofday(&tv, 0);
+    TC_Common::gettimeofday(tv);
 
     return tv.tv_sec * (int64_t)1000 + tv.tv_usec/1000;
 }
@@ -439,7 +655,8 @@ int64_t TC_Common::now2us()
 {
     struct timeval tv;
 
-    gettimeofday(&tv, 0);
+	TC_Common::gettimeofday(tv);
+    // gettimeofday(&tv, 0);
 
     return tv.tv_sec * (int64_t)1000000 + tv.tv_usec;
 }
@@ -634,6 +851,7 @@ bool TC_Common::matchPeriod(const string& s, const vector<string>& pat)
     return false;
 }
 
+#if TARGET_PLATFORM_LINUX || TARGET_PLATFORM_IOS
 void TC_Common::daemon()
 {
     pid_t pid;
@@ -677,6 +895,7 @@ void TC_Common::ignorePipe()
     sigemptyset(&sig.sa_mask);
     sigaction(SIGPIPE,&sig,NULL);
 }
+#endif
 
 bool TC_Common::isPrimeNumber(size_t n)
 {
@@ -735,6 +954,25 @@ size_t TC_Common::toSize(const string &s, size_t iDefaultSize)
     return iDefaultSize;
 }
 
+
+string TC_Common::getHostName()
+{
+	string hostName;
+	char buff[256] = { 0 };
+	int ret = ::gethostname(buff, sizeof(buff));
+	if (0 == ret)
+	{
+		hostName = string(buff);
+	}
+	else
+	{
+		// 获取不到host， 则直接传空串。
+	}
+	return hostName;
+}
+
+#if TARGET_PLATFORM_LINUX || TARGET_PLATFORM_IOS
+
 // Generate the randome string, a SHA1-sized random number
 void TC_Common::getRandomHexChars(char* p, unsigned int len)
 {
@@ -752,6 +990,8 @@ void TC_Common::getRandomHexChars(char* p, unsigned int len)
         p[j] = chars[p[j] & 0x0F];
 
 }
+
+#endif
 
 }
 

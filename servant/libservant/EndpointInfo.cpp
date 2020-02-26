@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Tencent is pleased to support the open source community by making Tars available.
  *
  * Copyright (C) 2016THL A29 Limited, a Tencent company. All rights reserved.
@@ -28,8 +28,9 @@ EndpointInfo::EndpointInfo()
 , _type(TCP)
 , _weight(-1)
 , _weighttype(0)
-, _authType(0)
+, _authType(AUTH_TYPENONE)
 , _isIPv6(false)
+, _addressSucc(false)
 {
     _setDivision.clear();
     memset(&_addr,0,sizeof(_addr));
@@ -44,42 +45,46 @@ EndpointInfo::EndpointInfo(const string& host, uint16_t port, EndpointInfo::ETyp
 , _setDivision(setDivision)
 , _weight(weight)
 , _weighttype(weighttype)
-, _authType(authType)
+, _authType((AUTH_TYPE)authType)
+, _addressSucc(false)
 {
     _isIPv6 = TC_Socket::addressIsIPv6(host);
-    try
+    if(_weighttype == 0)
     {
-        if(_weighttype == 0)
-        {
-            _weight = -1;
-        }
-        else
-        {
-            if(_weight == -1)
-            {    
-                _weight = 100;
-            }
-
-            _weight = (_weight > 100 ? 100 : _weight);
+        _weight = -1;
+    }
+    else
+    {
+        if(_weight == -1)
+        {    
+            _weight = 100;
         }
 
+        _weight = (_weight > 100 ? 100 : _weight);
+    }
+
+    _cmpDesc = createCompareDesc();
+
+    _desc = createDesc();
+}
+
+void EndpointInfo::parseAddress()
+{
+    // try
+    // {
         if (_isIPv6)
         {
-            NetworkUtil::getAddress(_host, _port, _addr.in6);
+            TC_Socket::parseAddrWithPort(_host, _port, _addr.in6);
         }
         else
         {
-            NetworkUtil::getAddress(_host, _port, _addr.in);
+            TC_Socket::parseAddrWithPort(_host, _port, _addr.in);
         }
-
-        _cmpDesc = createCompareDesc();
-
-        _desc = createDesc();
-    }
-    catch (...)
-    {
-        TLOGERROR("[ERROR:getAddress fail:" << _host << ":" << _port << "]" << endl);
-    }
+    // }
+    // catch (...)
+    // {
+    //     TLOGERROR("EndpointInfo::parseAddress fail:" << _host << ":" << _port << "]" << endl);
+    // }
 }
 
 string EndpointInfo::createCompareDesc()

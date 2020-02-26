@@ -1,4 +1,4 @@
-#include "DemoServantImp.h"
+﻿#include "DemoServantImp.h"
 #include "servant/Application.h"
 
 using namespace std;
@@ -25,7 +25,7 @@ int DemoServantImp::doRequest(TarsCurrentPtr current, vector<char> &buffer)
 	// parse request header
     vector<char> v = current->getRequestBuffer();
     string sBuf;
-    sBuf.assign(&v[0], v.size());
+    sBuf.assign(v.data(), v.size());
     req.decode(sBuf);
 
     int ret = doRequest(req, rsp);
@@ -38,7 +38,7 @@ int DemoServantImp::doRequest(TarsCurrentPtr current, vector<char> &buffer)
 int DemoServantImp::doRequest(const TC_HttpRequest &req, TC_HttpResponse &rsp)
 {
 	string msg = "Hello Tars!";
-    rsp.setContentType("html/text");
+    rsp.setContentType("text/html");
     rsp.setResponse(msg.c_str(), msg.size());
     return 0;   
 }

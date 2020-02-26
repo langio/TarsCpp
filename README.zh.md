@@ -1,3 +1,5 @@
+Tars整体介绍文档请阅读: https://tarscloud.gitbook.io/
+
 该工程是Tars RPC框架C++语言的源代码
 
 目录名称 |功能
@@ -31,4 +33,4 @@ make
 make install
 ```
 
-详细安装参见https://github.com/TarsCloud/Tars/blob/master/Install.zh.md
+详细安装参见[案例文档](https://tarscloud.github.io/TarsDocs/an-li/tarscpp/)

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Tencent is pleased to support the open source community by making Tars available.
  *
  * Copyright (C) 2016THL A29 Limited, a Tencent company. All rights reserved.
@@ -19,11 +19,14 @@
 
 #include "servant/Global.h"
 #include "util/tc_socket.h"
+#include "Auth.h"
 
 using namespace std;
 
 namespace tars
 {
+
+//enum AUTH_STATE;
 //////////////////////////////////////////////////////////////////////////////
 /**
  * 地址信息IP:Port
@@ -116,6 +119,11 @@ public:
     unsigned int getWeightType() const { return _weighttype; }
 
     /**
+     * 解析域名 
+     */
+    void parseAddress();
+
+    /**
      * 获取主机地址
      *
      * @return const struct sockaddr_in&
@@ -153,7 +161,7 @@ public:
     /*
      * 获取认证类型
      */
-    int authType() const  { return _authType; }
+    AUTH_TYPE authType() const  { return _authType; }
 
     /**
      * @brief is ipv6 socket or not
@@ -265,12 +273,17 @@ private:
     /**
      *  认证类型
      */
-    int                    _authType;
+    tars::AUTH_TYPE        _authType;
 
     /**
      * _host is IPv6 or not
      */
     bool                   _isIPv6;
+
+    /**
+     * 解析域名成功
+     */ 
+    bool                   _addressSucc;
 };
 /////////////////////////////////////////////////////////////////////////////
 }
